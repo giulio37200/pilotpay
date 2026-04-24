@@ -544,6 +544,7 @@ function saveEntry() {
     pilot.lastPerDiemCurrency = draft.currency;
   }
 
+  state.session.selectedPilotId = draft.pilotId;
   persist();
   clearEntryForm();
   render();
@@ -872,6 +873,10 @@ function tableRowMarkup({ title, subtitle, date, amount, meta, actions }) {
       <div class="actions-inline">${actions || `<span class="table-meta">${meta}</span>`}</div>
     </div>
   `;
+}
+
+function totalPerDiems() {
+  return state.perDiems.reduce((sum, item) => sum + item.amount, 0);
 }
 
 function paymentCompletionRate() {

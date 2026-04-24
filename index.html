@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PilotPay</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Space+Grotesk:wght@500;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div id="authGate" class="auth-gate">
+      <div class="auth-card">
+        <div class="auth-copy">
+          <p class="eyebrow">PilotPay Access</p>
+          <h1>Sign in to PilotPay</h1>
+          <p class="hero-text">
+            This prototype now includes the first account-ready layer, with sign in,
+            pilot-specific access, and a password reset entry point.
+          </p>
+          <div class="auth-demo-box">
+            <strong>Demo accounts</strong>
+            <p><code>manager@pilotpay.aero</code> or <code>marta@pilotpay.aero</code></p>
+            <p>Password: <code>pilotpay123</code></p>
+          </div>
+        </div>
+        <div class="auth-actions">
+          <form id="loginForm" class="auth-form">
+            <label>
+              Email
+              <input id="loginEmail" type="email" placeholder="manager@pilotpay.aero" required />
+            </label>
+            <label>
+              Password
+              <input id="loginPassword" type="password" placeholder="Enter your password" required />
+            </label>
+            <div id="authMessage" class="auth-message"></div>
+            <div class="form-actions">
+              <button type="submit" class="primary-button">Sign In</button>
+              <button type="button" id="showResetButton" class="ghost-button">Forgot Password</button>
+            </div>
+          </form>
+
+          <form id="resetForm" class="auth-form is-hidden">
+            <label>
+              Email
+              <input id="resetEmail" type="email" placeholder="pilot@pilotpay.aero" required />
+            </label>
+            <div id="resetMessage" class="auth-message"></div>
+            <div class="form-actions">
+              <button type="submit" class="primary-button">Send Reset Link</button>
+              <button type="button" id="backToLoginButton" class="ghost-button">Back to Login</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div>
+          <p class="eyebrow">Per Diem Management</p>
+          <h1 class="brand-title">PilotPay</h1>
+          <p class="sidebar-text">
+            Daily allowances, payment control, and clean visibility for flight teams.
+          </p>
+        </div>
+
+        <div class="session-card">
+          <div>
+            <span class="table-meta">Signed in as</span>
+            <strong id="sessionRoleLabel">Manager</strong>
+          </div>
+          <button id="switchRoleButton" class="ghost-button">Switch Role</button>
+        </div>
+
+        <nav class="sidebar-nav">
+          <button class="nav-link is-active" data-panel="overview">Overview</button>
+          <button class="nav-link" data-panel="operations">Operations</button>
+          <button class="nav-link" data-panel="pilots">Pilots</button>
+          <button class="nav-link" data-panel="portal">Pilot Portal</button>
+        </nav>
+
+        <div class="sidebar-note">
+          <strong>Current month</strong>
+          <p id="monthLabel">April 2026</p>
+        </div>
+      </aside>
+
+      <div class="content-shell">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Workspace</p>
+            <h2 id="panelTitle">Overview</h2>
+          </div>
+          <div class="topbar-actions">
+            <div id="pilotSelectorWrap">
+              <select id="pilotSelector" class="select"></select>
+            </div>
+            <button id="resetDataButton" class="ghost-button">Reset Sample Data</button>
+          </div>
+        </header>
+
+        <main>
+          <section id="overviewPanel" class="panel is-visible">
+            <div class="hero">
+              <div class="hero-copy">
+                <p class="eyebrow">Management Snapshot</p>
+                <h2 class="hero-title">Simple, clear control over every pilot allowance.</h2>
+                <p class="hero-text">
+                  Track worked days, pay outstanding balances, and keep every pilot account
+                  easy to understand at a glance.
+                </p>
+              </div>
+              <div class="hero-panel">
+                <div class="hero-stat">
+                  <span>Total Outstanding</span>
+                  <strong id="heroOutstanding">No balances</strong>
+                </div>
+                <div class="hero-stat">
+                  <span>Total Paid</span>
+                  <strong id="heroPaid">No balances</strong>
+                </div>
+                <div class="hero-stat">
+                  <span>Active Pilots</span>
+                  <strong id="heroPilots">0</strong>
+                </div>
+              </div>
+            </div>
+
+            <div class="grid two-columns">
+              <section class="card">
+                <div class="card-head">
+                  <div>
+                    <p class="card-kicker">Dashboard</p>
+                    <h2>Financial Overview</h2>
+                  </div>
+                </div>
+                <div id="managerStats" class="stats-grid"></div>
+              </section>
+
+              <section class="card">
+                <div class="card-head">
+                  <div>
+                    <p class="card-kicker">Status</p>
+                    <h2>Outstanding by Pilot</h2>
+                  </div>
+                </div>
+                <div id="pilotBalanceList" class="stack-list"></div>
+              </section>
+            </div>
+
+            <section class="card">
+              <div class="card-head">
+                <div>
+                  <p class="card-kicker">Consolidated Calendar</p>
+                  <h2>Monthly Flight Allowance Board</h2>
+                </div>
+              </div>
+              <div id="calendarLegend" class="legend"></div>
+              <div id="rosterBoard" class="roster-board"></div>
+            </section>
+          </section>
+
+          <section id="operationsPanel" class="panel">
+            <div class="grid two-columns">
+              <section class="card">
+                <div class="card-head">
+                  <div>
+                    <p class="card-kicker">Per Diem Entry</p>
+                    <h2>Record Worked Days</h2>
+                  </div>
+                </div>
+                <form id="entryForm" class="form-grid">
+                  <input type="hidden" id="entryId" />
+                  <label>
+                    Pilot
+                    <select id="entryPilotId" required></select>
+                  </label>
+                  <label>
+                    Date
+                    <input id="entryDate" type="date" required />
+                  </label>
+                  <label>
+                    Amount
+                    <input id="entryAmount" type="number" min="0" step="0.01" placeholder="120" required />
+                  </label>
+                  <label>
+                    Currency
+                    <select id="entryCurrency"></select>
+                  </label>
+                  <label class="full-width">
+                    Notes
+                    <input id="entryNotes" type="text" placeholder="Overnight rotation" />
+                  </label>
+                  <div class="form-actions">
+                    <button type="submit" class="primary-button">Save Entry</button>
+                    <button type="button" id="entryFormClear" class="ghost-button">Clear</button>
+                  </div>
+                </form>
+                <div id="entryCalendar" class="calendar-grid"></div>
+              </section>
+
+              <section class="card">
+                <div class="card-head">
+                  <div>
+                    <p class="card-kicker">Payment Tracking</p>
+                    <h2>Record a Payment</h2>
+                  </div>
+                </div>
+                <form id="paymentForm" class="form-grid">
+                  <input type="hidden" id="paymentId" />
+                  <label>
+                    Pilot
+                    <select id="paymentPilotId" required></select>
+                  </label>
+                  <label>
+                    Date
+                    <input id="paymentDate" type="date" required />
+                  </label>
+                  <label>
+                    Amount
+                    <input id="paymentAmount" type="number" min="0" step="0.01" placeholder="500" required />
+                  </label>
+                  <label>
+                    Currency
+                    <select id="paymentCurrency"></select>
+                  </label>
+                  <label class="full-width">
+                    Notes
+                    <input id="paymentNotes" type="text" placeholder="Bank transfer batch" />
+                  </label>
+                  <div class="form-actions">
+                    <button type="submit" class="primary-button">Save Payment</button>
+                    <button type="button" id="paymentFormClear" class="ghost-button">Clear</button>
+                    <button type="button" id="exportCsvButton" class="ghost-button">Export CSV</button>
+                  </div>
+                </form>
+                <div id="paymentHistory" class="table"></div>
+              </section>
+            </div>
+
+            <div class="grid two-columns">
+              <section class="card">
+                <div class="card-head">
+                  <div>
+                    <p class="card-kicker">Per Diem History</p>
+                    <h2>Recent Entries</h2>
+                  </div>
+                </div>
+                <div id="entryHistory" class="table"></div>
+              </section>
+
+              <section class="card">
+                <div class="card-head">
+                  <div>
+                    <p class="card-kicker">Audit Trail</p>
+                    <h2>Recent Activity</h2>
+                  </div>
+                </div>
+                <div id="auditTrail" class="timeline"></div>
+              </section>
+            </div>
+          </section>
+
+          <section id="pilotsPanel" class="panel">
+            <div class="grid two-columns">
+              <section class="card">
+                <div class="card-head">
+                  <div>
+                    <p class="card-kicker">Pilot Management</p>
+                    <h2>Add or Update a Pilot</h2>
+                  </div>
+                </div>
+                <form id="pilotForm" class="form-grid">
+                  <input type="hidden" id="pilotId" />
+                  <label>
+                    Full Name
+                    <input id="pilotName" type="text" placeholder="Maria Costa" required />
+                  </label>
+                  <label>
+                    Email
+                    <input id="pilotEmail" type="email" placeholder="maria@pilotpay.aero" required />
+                  </label>
+                  <label>
+                    Base
+                    <input id="pilotBase" type="text" placeholder="Lisbon" required />
+                  </label>
+                  <label>
+                    Preferred Currency
+                    <select id="pilotCurrency"></select>
+                  </label>
+                  <div class="form-actions">
+                    <button type="submit" class="primary-button">Save Pilot</button>
+                    <button type="button" id="pilotFormClear" class="ghost-button">Clear</button>
+                  </div>
+                </form>
+              </section>
+
+              <section class="card">
+                <div class="card-head">
+                  <div>
+                    <p class="card-kicker">Performance</p>
+                    <h2>Pilot Metrics</h2>
+                  </div>
+                </div>
+                <div id="pilotMetrics" class="stack-list"></div>
+              </section>
+            </div>
+
+            <section class="card">
+              <div class="card-head">
+                <div>
+                  <p class="card-kicker">Roster</p>
+                  <h2>Pilot Directory</h2>
+                </div>
+              </div>
+              <div id="pilotTable" class="table"></div>
+            </section>
+          </section>
+
+          <section id="portalPanel" class="panel">
+            <div class="grid two-columns">
+              <section class="card">
+                <div class="card-head">
+                  <div>
+                    <p class="card-kicker">Pilot Portal</p>
+                    <h2>Personal Dashboard</h2>
+                  </div>
+                </div>
+                <div id="pilotStats" class="stats-grid"></div>
+              </section>
+
+              <section class="card">
+                <div class="card-head">
+                  <div>
+                    <p class="card-kicker">Earnings Trend</p>
+                    <h2>Last 6 Months</h2>
+                  </div>
+                </div>
+                <div id="earningsTrend" class="chart-bars"></div>
+              </section>
+            </div>
+
+            <div class="grid two-columns">
+              <section class="card">
+                <div class="card-head">
+                  <div>
+                    <p class="card-kicker">Worked Days</p>
+                    <h2>Calendar View</h2>
+                  </div>
+                </div>
+                <div id="pilotCalendar" class="calendar-grid compact"></div>
+              </section>
+
+              <section class="card">
+                <div class="card-head">
+                  <div>
+                    <p class="card-kicker">Account Summary</p>
+                    <h2>Recent Transactions</h2>
+                  </div>
+                </div>
+                <div id="pilotTransactions" class="table"></div>
+              </section>
+            </div>
+          </section>
+        </main>
+      </div>
+    </div>
+
+    <template id="emptyStateTemplate">
+      <div class="empty-state">
+        <strong>No records yet</strong>
+        <p>Start by creating a pilot or adding a new entry.</p>
+      </div>
+    </template>
+
+    <script src="./app.js"></script>
+  </body>
+</html>

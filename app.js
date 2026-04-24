@@ -655,8 +655,12 @@ function clearPilotForm() {
 }
 
 function clearEntryForm() {
+  const selectedPilotId = state.session.selectedPilotId;
   elements.entryId.value = "";
   elements.entryForm.reset();
+  if (selectedPilotId && state.pilots.some((pilot) => pilot.id === selectedPilotId)) {
+    elements.entryPilotId.value = selectedPilotId;
+  }
   autopopulateEntryDefaults();
 }
 

@@ -1,4 +1,4 @@
-const STORAGE_KEY = "pilotpay-online-session-v1";
+const STORAGE_KEY = "pilotpay-supabase-session-v1";
 const CURRENCIES = ["USD", "EUR", "GBP", "CAD", "AUD", "JPY", "CHF"];
 const PANEL_TITLES = {
   overview: "Overview",
@@ -6,18 +6,26 @@ const PANEL_TITLES = {
   pilots: "Pilots",
   portal: "Pilot Portal",
 };
-const API_BASE_URL =
-  new URLSearchParams(window.location.search).get("api") ||
-  (window.location.protocol.startsWith("http") ? window.location.origin : "http://localhost:8787");
+
+const config = window.PILOTPAY_CONFIG || {};
+const supabaseUrl = config.supabaseUrl || "";
+const supabaseAnonKey = config.supabaseAnonKey || "";
+const supabaseReady = Boolean(window.supabase?.createClient && supabaseUrl && supabaseAnonKey);
+const supabaseClient = supabaseReady
+  ? window.supabase.createClient(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+      },
+    })
+  : null;
 
 const state = {
   connection: {
-    apiBaseUrl: API_BASE_URL,
-    backendReady: false,
+    supabaseReady,
     bootstrapRequired: false,
   },
   session: {
-    token: "",
     role: "",
     userId: "",
     userName: "",
@@ -93,7 +101,6 @@ const elements = {
   userPassword: document.querySelector("#userPassword"),
   entryForm: document.querySelector("#entryForm"),
   entryFormClear: document.querySelector("#entryFormClear"),
-  entryId: document.querySelector("#entryId"),
   entryPilotId: document.querySelector("#entryPilotId"),
   entryDate: document.querySelector("#entryDate"),
   entryAmount: document.querySelector("#entryAmount"),
@@ -101,7 +108,6 @@ const elements = {
   entryNotes: document.querySelector("#entryNotes"),
   paymentForm: document.querySelector("#paymentForm"),
   paymentFormClear: document.querySelector("#paymentFormClear"),
-  paymentId: document.querySelector("#paymentId"),
   paymentPilotId: document.querySelector("#paymentPilotId"),
   paymentDate: document.querySelector("#paymentDate"),
   paymentAmount: document.querySelector("#paymentAmount"),
@@ -116,7 +122,28 @@ boot();
 async function boot() {
   hydrateCurrencySelects();
   bindEvents();
-  restoreSession();
+  restorePanel();
+
+  if (!supabaseReady) {
+    showLoginForm();
+    showAppNotice("Supabase is not configured yet. Add your project URL and anon key to config.js to enable the final version.");
+    renderLayout();
+    render();
+    return;
+  }
+
+  supabaseClient.auth.onAuthStateChange(async (_event, session) => {
+    if (!session?.user) {
+      clearSession();
+      showLoginForm();
+      renderLayout();
+      render();
+      return;
+    }
+
+    await loadAppData(session.user);
+  });
+
   await initializeApp();
 }
 
@@ -145,6 +172,7 @@ function bindEvents() {
   document.querySelectorAll(".nav-link").forEach((button) => {
     button.addEventListener("click", () => {
       state.session.panel = button.dataset.panel;
+      persistPanel();
       renderLayout();
       render();
     });
@@ -188,62 +216,56 @@ function bindEvents() {
 
   elements.exportCsvButton.addEventListener("click", exportCsv);
   elements.resetDataButton.addEventListener("click", async () => {
-    await loadAppData();
+    if (state.session.userId) {
+      await loadAppData();
+    }
   });
 }
 
 async function initializeApp() {
-  try {
-    const health = await apiFetch("/api/health", { auth: false });
-    state.connection.backendReady = true;
-    state.connection.bootstrapRequired = Boolean(health.bootstrapRequired);
-  } catch (error) {
-    state.connection.backendReady = false;
-    showAppNotice(`The online backend is not reachable at ${state.connection.apiBaseUrl}. Start the server to use the final account flow.`);
-    showLoginForm();
-    elements.authMessage.textContent = "The secure backend is not available yet.";
-    renderLayout();
-    render();
+  const bootstrapRequired = await fetchBootstrapRequired();
+  state.connection.bootstrapRequired = bootstrapRequired;
+
+  const {
+    data: { session },
+  } = await supabaseClient.auth.getSession();
+
+  if (session?.user) {
+    await loadAppData(session.user);
     return;
   }
 
-  if (state.connection.bootstrapRequired) {
+  if (bootstrapRequired) {
     showBootstrapForm();
-    renderLayout();
-    render();
-    return;
+  } else {
+    showLoginForm();
   }
 
-  if (state.session.token) {
-    try {
-      await loadAppData();
-      return;
-    } catch (error) {
-      clearStoredSession();
-    }
-  }
-
-  showLoginForm();
   renderLayout();
   render();
 }
 
-async function attemptLogin() {
-  try {
-    const payload = await apiFetch("/api/auth/login", {
-      method: "POST",
-      auth: false,
-      body: {
-        email: elements.loginEmail.value.trim(),
-        password: elements.loginPassword.value,
-      },
-    });
-    elements.authMessage.textContent = "";
-    applySession(payload.token, payload.user);
-    await loadAppData();
-  } catch (error) {
-    elements.authMessage.textContent = error.message;
+async function fetchBootstrapRequired() {
+  const { data, error } = await supabaseClient.rpc("pilotpay_bootstrap_required");
+  if (error) {
+    showAppNotice(error.message);
+    return true;
   }
+  return Boolean(data);
+}
+
+async function attemptLogin() {
+  const { error } = await supabaseClient.auth.signInWithPassword({
+    email: elements.loginEmail.value.trim(),
+    password: elements.loginPassword.value,
+  });
+
+  if (error) {
+    elements.authMessage.textContent = error.message;
+    return;
+  }
+
+  elements.authMessage.textContent = "";
 }
 
 async function createMasterAccount() {
@@ -253,161 +275,324 @@ async function createMasterAccount() {
     return;
   }
 
-  try {
-    await apiFetch("/api/bootstrap/master", {
-      method: "POST",
-      auth: false,
-      body: {
-        name: elements.bootstrapName.value.trim(),
-        email: elements.bootstrapEmail.value.trim(),
-        password,
-      },
-    });
-    state.connection.bootstrapRequired = false;
-    elements.bootstrapMessage.textContent = "";
-    elements.loginEmail.value = elements.bootstrapEmail.value.trim();
-    elements.loginPassword.value = password;
-    showLoginForm();
-    elements.authMessage.textContent = "Master account created. Sign in to continue.";
-  } catch (error) {
+  const { data, error } = await supabaseClient.functions.invoke("bootstrap-master", {
+    body: {
+      name: elements.bootstrapName.value.trim(),
+      email: elements.bootstrapEmail.value.trim(),
+      password,
+    },
+  });
+
+  if (error) {
     elements.bootstrapMessage.textContent = error.message;
+    return;
   }
+
+  if (data?.error) {
+    elements.bootstrapMessage.textContent = data.error;
+    return;
+  }
+
+  elements.bootstrapMessage.textContent = "";
+  const { error: signInError } = await supabaseClient.auth.signInWithPassword({
+    email: elements.bootstrapEmail.value.trim(),
+    password,
+  });
+
+  if (signInError) {
+    elements.authMessage.textContent = signInError.message;
+    showLoginForm();
+    renderLayout();
+    return;
+  }
+
+  state.connection.bootstrapRequired = false;
 }
 
 async function sendResetLink() {
-  try {
-    const payload = await apiFetch("/api/auth/forgot-password", {
-      method: "POST",
-      auth: false,
-      body: { email: elements.resetEmail.value.trim() },
-    });
-    elements.resetMessage.textContent = payload.message;
-  } catch (error) {
-    elements.resetMessage.textContent = error.message;
-  }
+  const redirectTo = config.resetRedirectTo || window.location.href;
+  const { error } = await supabaseClient.auth.resetPasswordForEmail(elements.resetEmail.value.trim(), {
+    redirectTo,
+  });
+
+  elements.resetMessage.textContent = error
+    ? error.message
+    : "Reset email sent. Check your inbox.";
 }
 
-async function loadAppData() {
-  const [sessionPayload, pilots, perDiems, payments, auditLogs, users] = await Promise.all([
-    apiFetch("/api/session"),
-    apiFetch("/api/pilots"),
-    apiFetch("/api/per-diems"),
-    apiFetch("/api/payments"),
-    loadAuditLogs(),
+async function loadAppData(currentUser = null) {
+  const user = currentUser || (await supabaseClient.auth.getUser()).data.user;
+  if (!user) {
+    clearSession();
+    showLoginForm();
+    renderLayout();
+    render();
+    return;
+  }
+
+  const { data: profile, error: profileError } = await supabaseClient
+    .from("profiles")
+    .select("id, display_name, role, pilot_id")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (profileError) {
+    showAppNotice(profileError.message);
+    return;
+  }
+
+  if (!profile) {
+    if (state.connection.bootstrapRequired) {
+      showBootstrapForm();
+      renderLayout();
+      render();
+      return;
+    }
+    await supabaseClient.auth.signOut();
+    showAppNotice("This account is not linked to a PilotPay profile yet.");
+    return;
+  }
+
+  state.session.userId = profile.id;
+  state.session.role = profile.role;
+  state.session.userName = profile.display_name;
+
+  const [pilotsResult, perDiemsResult, paymentsResult, usersResult, auditResult] = await Promise.all([
+    loadPilots(),
+    loadPerDiems(),
+    loadPayments(),
     loadUsers(),
+    loadAuditLogs(),
   ]);
 
-  state.session.userId = sessionPayload.user.id;
-  state.session.role = sessionPayload.user.role;
-  state.session.userName = sessionPayload.user.name;
-  if (state.session.role === "pilot" && sessionPayload.user.pilotId) {
-    state.session.selectedPilotId = sessionPayload.user.pilotId;
+  state.pilots = pilotsResult;
+  state.perDiems = perDiemsResult;
+  state.payments = paymentsResult;
+  state.users = usersResult;
+  state.auditLogs = auditResult;
+
+  if (profile.role === "pilot" && profile.pilot_id) {
+    state.session.selectedPilotId = profile.pilot_id;
     state.session.panel = "portal";
-  } else if (!PANEL_TITLES[state.session.panel]) {
-    state.session.panel = "overview";
+  } else if (!state.session.selectedPilotId || !state.pilots.some((pilot) => pilot.id === state.session.selectedPilotId)) {
+    state.session.selectedPilotId = state.pilots[0]?.id || "";
   }
 
-  state.pilots = pilots;
-  state.perDiems = perDiems;
-  state.payments = payments;
-  state.auditLogs = auditLogs;
-  state.users = users;
+  if (!PANEL_TITLES[state.session.panel]) {
+    state.session.panel = profile.role === "pilot" ? "portal" : "overview";
+  }
 
-  syncSessionDefaults();
+  hideAppNotice();
   renderLayout();
   render();
-  hideAppNotice();
 }
 
-async function loadAuditLogs() {
-  if (!canManageOperations()) return [];
-  try {
-    return await apiFetch("/api/audit-logs");
-  } catch {
+async function loadPilots() {
+  const { data, error } = await supabaseClient
+    .from("pilots")
+    .select("id, full_name, email, base_location, preferred_currency, last_per_diem_amount, last_per_diem_currency")
+    .order("full_name", { ascending: true });
+
+  if (error) {
+    showAppNotice(error.message);
     return [];
   }
+
+  return data.map((pilot) => ({
+    id: pilot.id,
+    name: pilot.full_name,
+    email: pilot.email,
+    base: pilot.base_location,
+    preferredCurrency: pilot.preferred_currency,
+    lastPerDiemAmount: pilot.last_per_diem_amount || "",
+    lastPerDiemCurrency: pilot.last_per_diem_currency || pilot.preferred_currency,
+  }));
+}
+
+async function loadPerDiems() {
+  const { data, error } = await supabaseClient
+    .from("per_diem_entries")
+    .select("id, pilot_id, entry_date, amount, currency, notes, created_at")
+    .order("entry_date", { ascending: false });
+
+  if (error) {
+    showAppNotice(error.message);
+    return [];
+  }
+
+  return data.map((entry) => ({
+    id: entry.id,
+    pilotId: entry.pilot_id,
+    date: entry.entry_date,
+    amount: Number(entry.amount),
+    currency: entry.currency,
+    notes: entry.notes || "",
+    createdAt: entry.created_at,
+  }));
+}
+
+async function loadPayments() {
+  const { data, error } = await supabaseClient
+    .from("payments")
+    .select("id, pilot_id, payment_date, amount, currency, notes, created_at")
+    .order("payment_date", { ascending: false });
+
+  if (error) {
+    showAppNotice(error.message);
+    return [];
+  }
+
+  return data.map((payment) => ({
+    id: payment.id,
+    pilotId: payment.pilot_id,
+    date: payment.payment_date,
+    amount: Number(payment.amount),
+    currency: payment.currency,
+    notes: payment.notes || "",
+    createdAt: payment.created_at,
+  }));
 }
 
 async function loadUsers() {
   if (!isMaster()) return [];
-  try {
-    return await apiFetch("/api/users");
-  } catch {
+  const { data, error } = await supabaseClient
+    .from("profiles")
+    .select("id, display_name, email, role, pilot_id, is_active")
+    .order("display_name", { ascending: true });
+
+  if (error) {
+    showAppNotice(error.message);
     return [];
   }
+
+  return data.map((user) => ({
+    id: user.id,
+    name: user.display_name,
+    email: user.email,
+    role: user.role,
+    pilotId: user.pilot_id,
+    isActive: user.is_active,
+  }));
+}
+
+async function loadAuditLogs() {
+  if (!canManageOperations()) return [];
+  const { data, error } = await supabaseClient
+    .from("audit_logs")
+    .select("id, action, detail, created_at")
+    .order("created_at", { ascending: false })
+    .limit(20);
+
+  if (error) {
+    showAppNotice(error.message);
+    return [];
+  }
+
+  return data.map((item) => ({
+    id: item.id,
+    action: item.action,
+    detail: item.detail,
+    createdAt: item.created_at,
+  }));
 }
 
 async function savePilot() {
-  try {
-    const pilot = await apiFetch("/api/pilots", {
-      method: "POST",
-      body: {
-        name: elements.pilotName.value.trim(),
-        email: elements.pilotEmail.value.trim(),
-        base: elements.pilotBase.value.trim(),
-        preferredCurrency: elements.pilotCurrency.value,
-      },
-    });
-    state.session.selectedPilotId = pilot.id;
-    clearPilotForm();
-    await loadAppData();
-  } catch (error) {
+  const payload = {
+    full_name: elements.pilotName.value.trim(),
+    email: elements.pilotEmail.value.trim(),
+    base_location: elements.pilotBase.value.trim(),
+    preferred_currency: elements.pilotCurrency.value,
+  };
+
+  const { data, error } = await supabaseClient
+    .from("pilots")
+    .insert(payload)
+    .select("id")
+    .single();
+
+  if (error) {
     showAppNotice(error.message);
+    return;
   }
+
+  state.session.selectedPilotId = data.id;
+  clearPilotForm();
+  await loadAppData();
 }
 
 async function saveUser() {
-  try {
-    await apiFetch("/api/users", {
-      method: "POST",
-      body: {
-        name: elements.userName.value.trim(),
-        email: elements.userEmail.value.trim(),
-        role: elements.userRole.value,
-        pilotId: elements.userRole.value === "pilot" ? elements.userPilotId.value : null,
-        password: elements.userPassword.value,
-      },
-    });
-    clearUserForm();
-    await loadAppData();
-    showAppNotice("Account created successfully.");
-  } catch (error) {
-    showAppNotice(error.message);
+  const payload = {
+    name: elements.userName.value.trim(),
+    email: elements.userEmail.value.trim(),
+    role: elements.userRole.value,
+    pilotId: elements.userRole.value === "pilot" ? elements.userPilotId.value : null,
+    password: elements.userPassword.value,
+  };
+
+  const { data, error } = await supabaseClient.functions.invoke("create-company-user", {
+    body: payload,
+  });
+
+  if (error || data?.error) {
+    showAppNotice(error?.message || data.error);
+    return;
   }
+
+  clearUserForm();
+  await loadAppData();
+  showAppNotice("Account created successfully.");
 }
 
 async function saveEntry() {
   const draft = readEntryForm();
   if (!draft) return;
 
-  try {
-    await apiFetch("/api/per-diems", {
-      method: "POST",
-      body: draft,
-    });
-    state.session.selectedPilotId = draft.pilotId;
-    clearEntryForm();
-    await loadAppData();
-  } catch (error) {
+  const { error } = await supabaseClient.from("per_diem_entries").insert({
+    pilot_id: draft.pilotId,
+    entry_date: draft.date,
+    amount: draft.amount,
+    currency: draft.currency,
+    notes: draft.notes,
+  });
+
+  if (error) {
     showAppNotice(error.message);
+    return;
   }
+
+  await supabaseClient
+    .from("pilots")
+    .update({
+      last_per_diem_amount: draft.amount,
+      last_per_diem_currency: draft.currency,
+    })
+    .eq("id", draft.pilotId);
+
+  state.session.selectedPilotId = draft.pilotId;
+  clearEntryForm();
+  await loadAppData();
 }
 
 async function savePayment() {
   const draft = readPaymentForm();
   if (!draft) return;
 
-  try {
-    await apiFetch("/api/payments", {
-      method: "POST",
-      body: draft,
-    });
-    state.session.selectedPilotId = draft.pilotId;
-    clearPaymentForm();
-    await loadAppData();
-  } catch (error) {
+  const { error } = await supabaseClient.from("payments").insert({
+    pilot_id: draft.pilotId,
+    payment_date: draft.date,
+    amount: draft.amount,
+    currency: draft.currency,
+    notes: draft.notes,
+  });
+
+  if (error) {
     showAppNotice(error.message);
+    return;
   }
+
+  state.session.selectedPilotId = draft.pilotId;
+  clearPaymentForm();
+  await loadAppData();
 }
 
 function render() {
@@ -425,7 +610,7 @@ function render() {
 }
 
 function renderLayout() {
-  const isLoggedIn = Boolean(state.session.token && state.session.role);
+  const isLoggedIn = Boolean(state.session.userId && state.session.role);
   elements.authGate.classList.toggle("is-hidden", isLoggedIn);
   elements.sessionRoleLabel.textContent = isLoggedIn
     ? `${capitalize(state.session.role)}${state.session.userName ? ` • ${state.session.userName}` : ""}`
@@ -448,7 +633,6 @@ function renderLayout() {
   elements.resetDataButton.style.display = isLoggedIn ? "inline-flex" : "none";
   elements.userForm.closest(".card").style.display = isMaster() ? "block" : "none";
   elements.userTable.closest(".card").style.display = isMaster() ? "block" : "none";
-  elements.switchRoleButton.textContent = isLoggedIn ? "Log Out" : "Log Out";
   toggleUserPilotField();
 }
 
@@ -687,13 +871,11 @@ function showResetForm() {
 }
 
 function toggleUserPilotField() {
-  if (!elements.userPilotWrap) return;
   const isPilotRole = elements.userRole.value === "pilot";
   elements.userPilotWrap.classList.toggle("is-hidden", !isPilotRole);
 }
 
 function clearPilotForm() {
-  elements.pilotId.value = "";
   elements.pilotForm.reset();
   elements.pilotCurrency.value = "EUR";
 }
@@ -706,7 +888,6 @@ function clearUserForm() {
 
 function clearEntryForm() {
   const selectedPilotId = state.session.selectedPilotId;
-  elements.entryId.value = "";
   elements.entryForm.reset();
   if (selectedPilotId && state.pilots.some((pilot) => pilot.id === selectedPilotId)) {
     elements.entryPilotId.value = selectedPilotId;
@@ -716,7 +897,6 @@ function clearEntryForm() {
 
 function clearPaymentForm() {
   const selectedPilotId = state.session.selectedPilotId;
-  elements.paymentId.value = "";
   elements.paymentForm.reset();
   if (selectedPilotId && state.pilots.some((pilot) => pilot.id === selectedPilotId)) {
     elements.paymentPilotId.value = selectedPilotId;
@@ -1000,73 +1180,31 @@ function hideAppNotice() {
   elements.appNotice.textContent = "";
 }
 
-function restoreSession() {
+function restorePanel() {
   const raw = localStorage.getItem(STORAGE_KEY);
   if (!raw) return;
   try {
     const parsed = JSON.parse(raw);
-    state.session.token = parsed.token || "";
     state.session.panel = parsed.panel || "overview";
   } catch {
-    clearStoredSession();
+    localStorage.removeItem(STORAGE_KEY);
   }
 }
 
-function persistSession() {
-  localStorage.setItem(
-    STORAGE_KEY,
-    JSON.stringify({
-      token: state.session.token,
-      panel: state.session.panel,
-    })
-  );
+function persistPanel() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ panel: state.session.panel }));
 }
 
-function clearStoredSession() {
-  state.session.token = "";
+function clearSession() {
   state.session.role = "";
   state.session.userId = "";
   state.session.userName = "";
   state.session.panel = "overview";
   state.session.selectedPilotId = "";
-  localStorage.removeItem(STORAGE_KEY);
 }
 
-function applySession(token, user) {
-  state.session.token = token;
-  state.session.role = user.role;
-  state.session.userId = user.id;
-  state.session.userName = user.name;
-  state.session.panel = user.role === "pilot" ? "portal" : "overview";
-  persistSession();
-}
-
-function logout() {
-  clearStoredSession();
-  showLoginForm();
-  renderLayout();
-  render();
-}
-
-async function apiFetch(pathname, options = {}) {
-  const method = options.method || "GET";
-  const auth = options.auth !== false;
-  const headers = { "Content-Type": "application/json" };
-  if (auth && state.session.token) {
-    headers.Authorization = `Bearer ${state.session.token}`;
-  }
-
-  const response = await fetch(`${state.connection.apiBaseUrl}${pathname}`, {
-    method,
-    headers,
-    body: options.body ? JSON.stringify(options.body) : undefined,
-  });
-
-  const payload = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    throw new Error(payload.error || "Request failed");
-  }
-  return payload;
+async function logout() {
+  await supabaseClient.auth.signOut();
 }
 
 function isMaster() {

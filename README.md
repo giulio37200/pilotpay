@@ -1,19 +1,12 @@
 # PilotPay
 
-PilotPay is a web foundation for managing pilot per diem, payments, and balances.
+PilotPay is a private-company per diem management system for pilots, finance, and company administration.
 
-## Live app
+## Current app
 
-If GitHub Pages is enabled for this repository, the app will be available at:
-
-[https://giulio37200.github.io/pilotpay/](https://giulio37200.github.io/pilotpay/)
-
-## What is included
-
-- manager workspace
-- pilot portal
-- sign-in screen
-- password reset entry point
+- master account first setup
+- secure login flow
+- finance and pilot roles
 - pilot management
 - per diem entries
 - payment tracking
@@ -21,12 +14,17 @@ If GitHub Pages is enabled for this repository, the app will be available at:
 - CSV export
 - audit trail
 
-## Demo sign-in
+Open [index.html](/Users/marchetti/Documents/Codex/2026-04-24/check-meu-projeto-pilotpay-no-github/index.html) in a browser for local validation.
 
-- manager: `manager@pilotpay.aero`
-- pilot: `marta@pilotpay.aero`
-- password: `pilotpay123`
+## Deployment-ready base
 
-## Notes
+- app server: [backend/server.js](/Users/marchetti/Documents/Codex/2026-04-24/check-meu-projeto-pilotpay-no-github/backend/server.js)
+- database schema: [backend/schema.sql](/Users/marchetti/Documents/Codex/2026-04-24/check-meu-projeto-pilotpay-no-github/backend/schema.sql)
+- backend guide: [backend/README.md](/Users/marchetti/Documents/Codex/2026-04-24/check-meu-projeto-pilotpay-no-github/backend/README.md)
+- rollout notes: [docs/online-foundation.md](/Users/marchetti/Documents/Codex/2026-04-24/check-meu-projeto-pilotpay-no-github/docs/online-foundation.md)
+- deployment manifest: [render.yaml](/Users/marchetti/Documents/Codex/2026-04-24/check-meu-projeto-pilotpay-no-github/render.yaml)
+- runtime config: [package.json](/Users/marchetti/Documents/Codex/2026-04-24/check-meu-projeto-pilotpay-no-github/package.json)
 
-This public version is a static browser-based prototype intended for validation and presentation. The next production step is to connect it to a real backend and database.
+## Important note
+
+The current online-ready backend still persists data in a local JSON store. That works for protected first deployment and internal validation, but the next production-grade step is moving records to PostgreSQL.

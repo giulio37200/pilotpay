@@ -54,6 +54,10 @@ select {
   display: none;
 }
 
+.is-hidden {
+  display: none !important;
+}
+
 .auth-card,
 .sidebar,
 .topbar,
@@ -608,6 +612,11 @@ input {
   padding: 26px;
   background: rgba(255, 255, 255, 0.54);
   text-align: center;
+}
+
+.app-notice {
+  margin-bottom: 24px;
+  padding: 18px 22px;
 }
 
 @media (max-width: 1200px) {

@@ -1,0 +1,14 @@
+{
+  "name": "pilotpay",
+  "version": "1.0.0",
+  "private": true,
+  "description": "PilotPay private company deployment",
+  "main": "backend/server.js",
+  "scripts": {
+    "start": "node backend/server.js",
+    "check": "node --check app.js && node --check backend/server.js"
+  },
+  "engines": {
+    "node": ">=22 <23"
+  }
+}

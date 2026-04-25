@@ -17,22 +17,20 @@
       <div class="auth-card">
         <div class="auth-copy">
           <p class="eyebrow">PilotPay Access</p>
-          <h1>Sign in to PilotPay</h1>
-          <p class="hero-text">
-            This prototype now includes the first account-ready layer, with sign in,
-            pilot-specific access, and a password reset entry point.
+          <h1 id="authTitle">Sign in to PilotPay</h1>
+          <p id="authDescription" class="hero-text">
+            Secure access for your private company workspace.
           </p>
-          <div class="auth-demo-box">
-            <strong>Demo accounts</strong>
-            <p><code>manager@pilotpay.aero</code> or <code>marta@pilotpay.aero</code></p>
-            <p>Password: <code>pilotpay123</code></p>
+          <div id="authNotice" class="auth-demo-box">
+            <strong>Private company setup</strong>
+            <p>The first access creates the master account. After that, only internal users can be created by the master.</p>
           </div>
         </div>
         <div class="auth-actions">
           <form id="loginForm" class="auth-form">
             <label>
               Email
-              <input id="loginEmail" type="email" placeholder="manager@pilotpay.aero" required />
+              <input id="loginEmail" type="email" placeholder="your@email.com" required />
             </label>
             <label>
               Password
@@ -42,6 +40,29 @@
             <div class="form-actions">
               <button type="submit" class="primary-button">Sign In</button>
               <button type="button" id="showResetButton" class="ghost-button">Forgot Password</button>
+            </div>
+          </form>
+
+          <form id="bootstrapForm" class="auth-form is-hidden">
+            <label>
+              Master Name
+              <input id="bootstrapName" type="text" placeholder="Your full name" required />
+            </label>
+            <label>
+              Master Email
+              <input id="bootstrapEmail" type="email" placeholder="you@yourcompany.com" required />
+            </label>
+            <label>
+              Password
+              <input id="bootstrapPassword" type="password" placeholder="Create a secure password" required />
+            </label>
+            <label>
+              Confirm Password
+              <input id="bootstrapPasswordConfirm" type="password" placeholder="Repeat the password" required />
+            </label>
+            <div id="bootstrapMessage" class="auth-message"></div>
+            <div class="form-actions">
+              <button type="submit" class="primary-button">Create Master Account</button>
             </div>
           </form>
 
@@ -73,9 +94,9 @@
         <div class="session-card">
           <div>
             <span class="table-meta">Signed in as</span>
-            <strong id="sessionRoleLabel">Manager</strong>
+            <strong id="sessionRoleLabel">Guest</strong>
           </div>
-          <button id="switchRoleButton" class="ghost-button">Switch Role</button>
+          <button id="switchRoleButton" class="ghost-button">Log Out</button>
         </div>
 
         <nav class="sidebar-nav">
@@ -101,9 +122,11 @@
             <div id="pilotSelectorWrap">
               <select id="pilotSelector" class="select"></select>
             </div>
-            <button id="resetDataButton" class="ghost-button">Reset Sample Data</button>
+            <button id="resetDataButton" class="ghost-button">Refresh Data</button>
           </div>
         </header>
+
+        <div id="appNotice" class="card app-notice is-hidden"></div>
 
         <main>
           <section id="overviewPanel" class="panel is-visible">
@@ -304,11 +327,61 @@
               <section class="card">
                 <div class="card-head">
                   <div>
+                    <p class="card-kicker">Team Access</p>
+                    <h2>Create Internal Account</h2>
+                  </div>
+                </div>
+                <form id="userForm" class="form-grid">
+                  <label>
+                    Full Name
+                    <input id="userName" type="text" placeholder="Ana Ribeiro" />
+                  </label>
+                  <label>
+                    Email
+                    <input id="userEmail" type="email" placeholder="ana@yourcompany.com" />
+                  </label>
+                  <label>
+                    Role
+                    <select id="userRole">
+                      <option value="finance">Finance</option>
+                      <option value="pilot">Pilot</option>
+                    </select>
+                  </label>
+                  <label id="userPilotWrap" class="is-hidden">
+                    Linked Pilot
+                    <select id="userPilotId"></select>
+                  </label>
+                  <label class="full-width">
+                    Temporary Password
+                    <input id="userPassword" type="password" placeholder="Create the initial password" />
+                  </label>
+                  <div class="form-actions">
+                    <button type="submit" id="userSaveButton" class="primary-button">Create Account</button>
+                    <button type="button" id="userFormClear" class="ghost-button">Clear</button>
+                  </div>
+                </form>
+              </section>
+            </div>
+
+            <div class="grid two-columns">
+              <section class="card">
+                <div class="card-head">
+                  <div>
                     <p class="card-kicker">Performance</p>
                     <h2>Pilot Metrics</h2>
                   </div>
                 </div>
                 <div id="pilotMetrics" class="stack-list"></div>
+              </section>
+
+              <section class="card">
+                <div class="card-head">
+                  <div>
+                    <p class="card-kicker">Access Control</p>
+                    <h2>Company Accounts</h2>
+                  </div>
+                </div>
+                <div id="userTable" class="table"></div>
               </section>
             </div>
 

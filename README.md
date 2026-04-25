@@ -1,38 +1,42 @@
 # PilotPay
 
-PilotPay is a private-company per diem management system for pilots, finance, and company administration.
+PilotPay is a private-company per diem system for pilots, finance, and company administration.
 
-## Current app
+## Current direction
 
-- master account first setup
-- secure login flow
-- finance and pilot roles
-- pilot management
-- per diem entries
-- payment tracking
-- outstanding balance overview
-- CSV export
-- audit trail
+This version now targets:
 
-Open [index.html](/Users/marchetti/Documents/Codex/2026-04-24/check-meu-projeto-pilotpay-no-github/index.html) in a browser for local validation.
+- frontend hosted as a static site
+- authentication with Supabase
+- database with Supabase Postgres
+- one permanent `master` account
+- internal `finance` and `pilot` accounts created by the master
 
-## One-click online deploy
+## Main files
 
-[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/giulio37200/pilotpay)
+- app shell: [index.html](/Users/marchetti/Documents/Codex/2026-04-24/check-meu-projeto-pilotpay-no-github/index.html)
+- frontend logic: [app.js](/Users/marchetti/Documents/Codex/2026-04-24/check-meu-projeto-pilotpay-no-github/app.js)
+- visual styles: [styles.css](/Users/marchetti/Documents/Codex/2026-04-24/check-meu-projeto-pilotpay-no-github/styles.css)
+- Supabase config: [config.js](/Users/marchetti/Documents/Codex/2026-04-24/check-meu-projeto-pilotpay-no-github/config.js)
+- database setup: [supabase/schema.sql](/Users/marchetti/Documents/Codex/2026-04-24/check-meu-projeto-pilotpay-no-github/supabase/schema.sql)
+- master bootstrap function: [supabase/functions/bootstrap-master/index.ts](/Users/marchetti/Documents/Codex/2026-04-24/check-meu-projeto-pilotpay-no-github/supabase/functions/bootstrap-master/index.ts)
+- internal user creation function: [supabase/functions/create-company-user/index.ts](/Users/marchetti/Documents/Codex/2026-04-24/check-meu-projeto-pilotpay-no-github/supabase/functions/create-company-user/index.ts)
 
-Use this button to create the online service from this repository on your own Render account.
+## What the app already supports
 
-## Deployment-ready base
+- first access creates the definitive `master` account
+- `master` can create `finance` and `pilot` accounts
+- pilots only see their own data
+- finance can manage pilots, per diem entries, and payments
+- balances, history, trends, and CSV export
 
-- app server: [backend/server.js](/Users/marchetti/Documents/Codex/2026-04-24/check-meu-projeto-pilotpay-no-github/backend/server.js)
-- database schema: [backend/schema.sql](/Users/marchetti/Documents/Codex/2026-04-24/check-meu-projeto-pilotpay-no-github/backend/schema.sql)
-- backend guide: [backend/README.md](/Users/marchetti/Documents/Codex/2026-04-24/check-meu-projeto-pilotpay-no-github/backend/README.md)
-- rollout notes: [docs/online-foundation.md](/Users/marchetti/Documents/Codex/2026-04-24/check-meu-projeto-pilotpay-no-github/docs/online-foundation.md)
-- deployment manifest: [render.yaml](/Users/marchetti/Documents/Codex/2026-04-24/check-meu-projeto-pilotpay-no-github/render.yaml)
-- runtime config: [package.json](/Users/marchetti/Documents/Codex/2026-04-24/check-meu-projeto-pilotpay-no-github/package.json)
+## What still needs your real Supabase project
 
-## Important note
+To make the final version work online, this app still needs:
 
-The current online-ready backend still persists data in a local JSON store. That works for protected first deployment and internal validation, but the next production-grade step is moving records to PostgreSQL.
+- your Supabase project URL
+- your Supabase anon key
+- the SQL from `supabase/schema.sql` applied in your project
+- the two Edge Functions deployed in your Supabase project
 
-GitHub Pages is no longer the final destination for the app, because the final version needs a live backend. The proper final deployment is a Node web service.
+After that, the static site can stay on GitHub Pages with no separate paid backend.

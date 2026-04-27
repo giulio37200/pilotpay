@@ -213,6 +213,11 @@ function bindEvents() {
   });
   elements.paymentFormClear.addEventListener("click", clearPaymentForm);
   elements.paymentPilotId.addEventListener("change", autopopulatePaymentDefaults);
+  elements.paymentHistory.addEventListener("click", async (event) => {
+    const button = event.target.closest("[data-delete-payment-id]");
+    if (!button) return;
+    await deletePayment(button.dataset.deletePaymentId);
+  });
 
   elements.exportCsvButton.addEventListener("click", exportCsv);
   elements.resetDataButton.addEventListener("click", async () => {
@@ -595,6 +600,28 @@ async function savePayment() {
   await loadAppData();
 }
 
+async function deletePayment(paymentId) {
+  if (!paymentId || !canManageOperations()) return;
+
+  const payment = state.payments.find((item) => item.id === paymentId);
+  if (!payment) return;
+
+  const pilot = findPilot(payment.pilotId);
+  const confirmed = window.confirm(
+    `Delete this payment for ${pilot?.name || "this pilot"} on ${payment.date} (${formatMoney(payment.amount, payment.currency)})?`
+  );
+  if (!confirmed) return;
+
+  const { error } = await supabaseClient.from("payments").delete().eq("id", paymentId);
+  if (error) {
+    showAppNotice(error.message);
+    return;
+  }
+
+  showAppNotice("Payment deleted.");
+  await loadAppData();
+}
+
 function render() {
   syncSessionDefaults();
   populatePilotSelectors();
@@ -681,6 +708,9 @@ function renderPaymentHistory() {
         date: payment.date,
         amount: formatMoney(payment.amount, payment.currency),
         meta: payment.currency,
+        actions: canManageOperations()
+          ? `<button type="button" class="tiny-button danger" data-delete-payment-id="${payment.id}">Delete</button>`
+          : "",
       });
     });
 
@@ -1128,7 +1158,7 @@ function statCardMarkup([label, value]) {
   `;
 }
 
-function tableRowMarkup({ title, subtitle, date, amount, meta }) {
+function tableRowMarkup({ title, subtitle, date, amount, meta, actions = "" }) {
   return `
     <div class="table-row">
       <div>
@@ -1137,7 +1167,10 @@ function tableRowMarkup({ title, subtitle, date, amount, meta }) {
       </div>
       <div>${date}</div>
       <div>${amount}</div>
-      <div class="actions-inline"><span class="table-meta">${meta}</span></div>
+      <div class="actions-inline">
+        <span class="table-meta">${meta}</span>
+        ${actions}
+      </div>
     </div>
   `;
 }

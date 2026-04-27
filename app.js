@@ -132,7 +132,7 @@ async function boot() {
     return;
   }
 
-  supabaseClient.auth.onAuthStateChange(async (_event, session) => {
+  supabaseClient.auth.onAuthStateChange((_event, session) => {
     if (!session?.user) {
       clearSession();
       showLoginForm();
@@ -141,7 +141,9 @@ async function boot() {
       return;
     }
 
-    await loadAppData(session.user);
+    window.setTimeout(() => {
+      loadAppData(session.user);
+    }, 0);
   });
 
   await initializeApp();
